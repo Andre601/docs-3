@@ -567,6 +567,7 @@ components:
             - title
             - description
             - body
+            - categories
             - client_side
             - server_side
             - license_id
