@@ -1,4 +1,4 @@
-openapi: 3.0.0
+openapi: 3.1.0
 info:
   version: v2.3.1
   title: Labrinth
@@ -34,1371 +34,9 @@ servers:
     description: Production server
   - url: https://staging-api.modrinth.com/v2
     description: Staging server
-tags:
-  - name: projects
-    x-displayName: Projects
-    description: Projects can be mods or modpacks and are created by users.
-  - name: versions
-    x-displayName: Versions
-    description: Versions contain download links to files with additional metadata.
-  - name: version-files
-    x-displayName: Version Files
-    description: >-
-      Versions can contain multiple files, and these routes help manage those
-      files.
-  - name: users
-    x-displayName: Users
-    description: >-
-      Users can create projects, join teams, access notifications, manage
-      settings, and follow projects. Admins and moderators have more advanced
-      permissions such as reviewing new projects.
-  - name: teams
-    x-displayName: Teams
-    description: >-
-      Through teams, user permissions limit how team members can modify
-      projects.
-  - name: tags
-    x-displayName: Tags
-    description: >-
-      Tags are common and reusable lists of metadata types such as categories or
-      versions. Some can be applied to projects and/or versions.
-  - name: auth
-    x-displayName: Authorization
-  - name: project_model
-    x-displayName: Project Model
-    description: |
-      <SchemaDefinition schemaRef="#/components/schemas/Project" />
-  - name: project_result_model
-    x-displayName: Search Result Model
-    description: |
-      <SchemaDefinition schemaRef="#/components/schemas/ProjectResult" />
-  - name: version_model
-    x-displayName: Version Model
-    description: |
-      <SchemaDefinition schemaRef="#/components/schemas/Version" />
-  - name: user_model
-    x-displayName: User Model
-    description: |
-      <SchemaDefinition schemaRef="#/components/schemas/User" />
-  - name: team_member_model
-    x-displayName: Team Member Model
-    description: |
-      <SchemaDefinition schemaRef="#/components/schemas/TeamMember" />
-x-tagGroups:
-  - name: General
-    tags:
-      - projects
-      - versions
-      - version-files
-      - users
-      - teams
-      - tags
-  - name: Models
-    tags:
-      - project_model
-      - project_result_model
-      - version_model
-      - user_model
-      - team_member_model
-paths:
-  /search:
-    get:
-      summary: Search projects
-      operationId: searchProjects
-      parameters:
-        - in: query
-          name: query
-          schema:
-            type: string
-            example: gravestones
-          description: The query to search for
-        - in: query
-          name: facets
-          schema:
-            type: array
-            items:
-              type: array
-              items:
-                type: string
-                enum:
-                  - categories
-                  - versions
-                  - license
-                  - project_type
-          example: '[["categories:forge"],["versions:1.17.1"],["project_type:mod"]]'
-          description: >-
-            The recommended way of filtering search results. [Learn more about
-            using facets.](/docs/tutorials/api_search)
-        - in: query
-          name: index
-          schema:
-            type: string
-            enum:
-              - relevance
-              - downloads
-              - follows
-              - newest
-              - updated
-            default: relevance
-            example: downloads
-          description: The sorting method used for sorting search results
-        - in: query
-          name: offset
-          schema:
-            type: integer
-            default: 0
-            example: 20
-          description: The offset into the search. Skips this number of results
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            default: 10
-            example: 20
-          description: The number of results returned by the search
-        - in: query
-          name: filters
-          schema:
-            type: string
-            example: >-
-              categories="fabric" AND (categories="technology" OR
-              categories="utility")
-          description: >-
-            A list of filters relating to the properties of a project. Use
-            filters when there isn't an available facet for your needs. [More
-            information](https://docs.meilisearch.com/reference/features/filtering.html)
-        - in: query
-          name: version
-          schema:
-            type: string
-            example: version="1.16.3" OR version="1.16.2" OR version="1.16.1"
-          deprecated: true
-          description: >-
-            A list of filters relating to the versions of a project. Use of
-            facets for filtering by version is recommended
-      tags:
-        - projects
-      responses:
-        '200':
-          description: Search results
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SearchResults'
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InvalidInputError'
-  /project/{id|slug}:
-    get:
-      summary: Get a project
-      operationId: getProject
-      tags:
-        - projects
-      parameters:
-        - $ref: '#/components/parameters/ProjectIdentifier'
-      responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Project'
-        '404':
-          description: >-
-            The requested project was not found or no authorization to see this
-            project
-    patch:
-      summary: Modify a project
-      operationId: modifyProject
-      tags:
-        - projects
-      parameters:
-        - $ref: '#/components/parameters/ProjectIdentifier'
-      requestBody:
-        description: Modified project fields
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EditableProject'
-      responses:
-        '204':
-          description: Project modified successfully
-        '401':
-          description: No authorization to edit this project
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-        '404':
-          description: >-
-            The requested project was not found or no authorization to see this
-            project
-    delete:
-      summary: Delete a project
-      operationId: deleteProject
-      tags:
-        - projects
-      parameters:
-        - $ref: '#/components/parameters/ProjectIdentifier'
-      responses:
-        '204':
-          description: Project deleted successfully
-        '400':
-          description: The requested project was not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InvalidInputError'
-        '401':
-          description: No valid authorization to delete this project
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-  /projects:
-    get:
-      summary: Get multiple projects
-      operationId: getProjects
-      tags:
-        - projects
-      parameters:
-        - in: query
-          name: ids
-          description: The IDs of the projects
-          schema:
-            type: array
-            items:
-              type: string
-            example: '["AABBCCDD", "EEFFGGHH"]'
-          required: true
-      responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Project'
-  /project:
-    post:
-      summary: Create a project
-      operationId: createProject
-      tags:
-        - projects
-      requestBody:
-        description: New project
-        content:
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/CreatableProject'
-            encoding:
-              icon:
-                contentType: >-
-                  image/png, image/jpeg, image/bmp, image/gif, image/webp,
-                  image/svg, image/svgz, image/rgb
-      responses:
-        '200':
-          description: Project successfully created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Project'
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InvalidInputError'
-        '401':
-          description: No authorization to create a project
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-  /project/{id|slug}/gallery:
-    post:
-      summary: Add a gallery image
-      description: >-
-        Modrinth allows you to upload files of up to 5MiB to a project's
-        gallery.
-      operationId: addGalleryImage
-      tags:
-        - projects
-      parameters:
-        - $ref: '#/components/parameters/ProjectIdentifier'
-        - description: Image extension
-          in: query
-          name: ext
-          required: true
-          schema:
-            type: string
-            enum:
-              - png
-              - jpg
-              - jpeg
-              - bmp
-              - gif
-              - webp
-              - svg
-              - svgz
-              - rgb
-        - description: Whether an image is featured
-          in: query
-          name: featured
-          required: true
-          schema:
-            type: boolean
-        - description: Title of the image
-          in: query
-          name: title
-          schema:
-            type: string
-        - description: Description of the image
-          in: query
-          name: description
-          schema:
-            type: string
-      requestBody:
-        description: New gallery image
-        content:
-          image/*:
-            schema:
-              type: string
-              format: binary
-            encoding:
-              image:
-                contentType: >-
-                  image/png, image/jpeg, image/bmp, image/gif, image/webp,
-                  image/svg, image/svgz, image/rgb
-      responses:
-        '204':
-          description: Gallery image successfully created
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InvalidInputError'
-        '401':
-          description: No authorization to create a gallery image
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-        '404':
-          description: >-
-            The requested project was not found or no authorization to see this
-            project
-    patch:
-      summary: Modify a gallery image
-      operationId: modifyGalleryImage
-      tags:
-        - projects
-      parameters:
-        - $ref: '#/components/parameters/ProjectIdentifier'
-        - description: URL link of the image to modify
-          in: query
-          name: url
-          required: true
-          schema:
-            type: string
-            format: uri
-        - description: Whether the image is featured
-          in: query
-          name: featured
-          required: true
-          schema:
-            type: boolean
-        - description: New title of the image
-          in: query
-          name: title
-          schema:
-            type: string
-        - description: New description of the image
-          in: query
-          name: description
-          schema:
-            type: string
-      responses:
-        '204':
-          description: Gallery image modified successfully
-        '401':
-          description: No authorization to edit this gallery image
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-        '404':
-          description: >-
-            The requested project was not found or no authorization to see this
-            project
-    delete:
-      summary: Delete a gallery image
-      operationId: deleteGalleryImage
-      tags:
-        - projects
-      parameters:
-        - $ref: '#/components/parameters/ProjectIdentifier'
-        - description: URL link of the image to delete
-          in: query
-          name: url
-          required: true
-          schema:
-            type: string
-            format: uri
-      responses:
-        '204':
-          description: Gallery image deleted successfully
-        '400':
-          description: Invalid URL or project specified
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InvalidInputError'
-        '401':
-          description: No authorization to delete this gallery image
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-  /project/{id|slug}/dependencies:
-    get:
-      summary: Get all of a project's dependencies
-      operationId: getDependencies
-      tags:
-        - projects
-      parameters:
-        - $ref: '#/components/parameters/ProjectIdentifier'
-      responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProjectDependencyList'
-        '404':
-          description: >-
-            The requested project was not found or no authorization to see this
-            project
-  /project/{id|slug}/version:
-    get:
-      summary: List project's versions
-      operationId: getProjectVersions
-      tags:
-        - versions
-      parameters:
-        - $ref: '#/components/parameters/ProjectIdentifier'
-        - in: query
-          name: loaders
-          required: false
-          description: The types of loaders to filter for
-          schema:
-            type: array
-            items:
-              type: string
-            example: '["fabric"]'
-        - in: query
-          name: game_versions
-          required: false
-          description: The game versions to filter for
-          schema:
-            type: array
-            items:
-              type: string
-            example: '["1.18.1"]'
-        - in: query
-          name: featured
-          required: false
-          description: Allows to filter for featured or non-featured versions only
-          schema:
-            type: boolean
-      responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Version'
-        '404':
-          description: >-
-            The requested project was not found or no authorization to see this
-            project
-  /version/{id}:
-    get:
-      summary: Get a version
-      operationId: getVersion
-      tags:
-        - versions
-      parameters:
-        - $ref: '#/components/parameters/VersionIdentifier'
-      responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Version'
-        '404':
-          description: >-
-            The requested version was not found or no authorization to see this
-            version
-    patch:
-      summary: Modify a version
-      operationId: modifyVersion
-      tags:
-        - versions
-      parameters:
-        - $ref: '#/components/parameters/VersionIdentifier'
-      requestBody:
-        description: Modified version fields
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EditableVersion'
-      responses:
-        '204':
-          description: Version modified successfully
-        '401':
-          description: No authorization to edit this version
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-        '404':
-          description: >-
-            The requested version was not found or no authorization to see this
-            version
-    delete:
-      summary: Delete a version
-      operationId: deleteVersion
-      tags:
-        - versions
-      parameters:
-        - $ref: '#/components/parameters/VersionIdentifier'
-      responses:
-        '204':
-          description: Version deleted successfully
-        '401':
-          description: No authorization to delete this version
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-        '404':
-          description: >-
-            The requested version was not found or no authorization to see this
-            version
-  /version:
-    post:
-      summary: Create a version
-      description: Project files are attached. `.mrpack` and `.jar` files are accepted.
-      operationId: createVersion
-      tags:
-        - versions
-      requestBody:
-        description: New version
-        content:
-          multipart/form-data:
-            schema:
-              $ref: '#/components/schemas/CreatableVersion'
-      responses:
-        '200':
-          description: Version successfully created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Version'
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InvalidInputError'
-        '401':
-          description: No authorization to create this version
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-  /versions:
-    get:
-      summary: Get multiple versions
-      operationId: getVersions
-      tags:
-        - versions
-      parameters:
-        - in: query
-          name: ids
-          description: The IDs of the versions
-          schema:
-            type: array
-            items:
-              type: string
-            example: '["AABBCCDD", "EEFFGGHH"]'
-          required: true
-      responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Version'
-  /version/{id}/file:
-    post:
-      summary: Add files to version
-      description: Project files are attached. `.mrpack` and `.jar` files are accepted.
-      operationId: addFilesToVersion
-      tags:
-        - versions
-      parameters:
-        - $ref: '#/components/parameters/VersionIdentifier'
-      requestBody:
-        description: New version files
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                data:
-                  type: object
-                  enum:
-                    - {}
-      responses:
-        '204':
-          description: Version modified successfully
-        '401':
-          description: No authorization to modify this version
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-        '404':
-          description: >-
-            The requested version was not found or no authorization to see this
-            version
-  /version_file/{hash}?algorithm={algorithm}:
-    get:
-      summary: Get version from hash
-      operationId: versionFromHash
-      tags:
-        - version-files
-      responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Version'
-        '404':
-          description: >-
-            The requested version file was not found or no authorization to see
-            this version
-      parameters:
-        - $ref: '#/components/parameters/FileHashIdentifier'
-        - $ref: '#/components/parameters/AlgorithmIdentifier'
-    delete:
-      summary: Delete a file from its hash
-      operationId: deleteFileFromHash
-      tags:
-        - version-files
-      responses:
-        '204':
-          description: Expected response to a valid request
-        '401':
-          description: No authorization to delete this version
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-        '404':
-          description: The requested version was not found
-      parameters:
-        - $ref: '#/components/parameters/FileHashIdentifier'
-        - $ref: '#/components/parameters/AlgorithmIdentifier'
-  /version_file/{hash}/update?algorithm={algorithm}:
-    post:
-      summary: Latest version of a project from a hash, loader(s), and game version(s)
-      operationId: getLatestVersionFromHash
-      tags:
-        - version-files
-      parameters:
-        - $ref: '#/components/parameters/FileHashIdentifier'
-        - $ref: '#/components/parameters/AlgorithmIdentifier'
-      requestBody:
-        description: Parameters of the updated version requested
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                loaders:
-                  type: array
-                  items:
-                    type: string
-                    example:
-                      - fabric
-                game_versions:
-                  type: array
-                  items:
-                    type: string
-                  example:
-                    - '1.18'
-                    - 1.18.1
-              required:
-                - loaders
-                - game_versions
-      responses:
-        '200':
-          description: Latest version retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Version'
-        '400':
-          description: Input is invalid
-        '404':
-          description: >-
-            The requested version was not found or no authorization to see this
-            version
-  /version_files:
-    post:
-      summary: Get versions from hashes
-      description: >-
-        This is the same as [`/version_file/{hash}`](#operation/versionFromHash)
-        except it accepts multiple hashes.
-      operationId: versionsFromHashes
-      tags:
-        - version-files
-      responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  your_hash_here:
-                    $ref: '#/components/schemas/Version'
-        '400':
-          description: Input is invalid
-      requestBody:
-        description: Hashes and algorithm of the versions requested
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                hashes:
-                  type: array
-                  items:
-                    type: string
-                  example:
-                    - >-
-                      ea0f38408102e4d2efd53c2cc11b88b711996b48d8922f76ea6abf731219c5bd1efe39ddf9cce77c54d49a62ff10fb685c00d2e4c524ab99d20f6296677ab2c4
-                    - >-
-                      925a5c4899affa4098d997dfa4a4cb52c636d539e94bc489d1fa034218cb96819a70eb8b01647a39316a59fcfe223c1a8c05ed2e2ae5f4c1e75fa48f6af1c960
-                algorithm:
-                  type: string
-                  enum:
-                    - sha1
-                    - sha512
-                  example: sha512
-              required:
-                - hashes
-                - algorithm
-  /version_files/update:
-    post:
-      summary: >-
-        Latest versions of multiple project from hashes, loader(s), and game
-        version(s)
-      description: >-
-        This is the same as
-        [`/version_file/{hash}/update?algorithm={algorithm}`](#operation/getLatestVersionFromHash)
-        except it accepts multiple hashes.
-      operationId: getLatestVersionsFromHashes
-      tags:
-        - version-files
-      requestBody:
-        description: Parameters of the updated version requested
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                hashes:
-                  type: array
-                  items:
-                    type: string
-                  example:
-                    - >-
-                      ea0f38408102e4d2efd53c2cc11b88b711996b48d8922f76ea6abf731219c5bd1efe39ddf9cce77c54d49a62ff10fb685c00d2e4c524ab99d20f6296677ab2c4
-                    - >-
-                      925a5c4899affa4098d997dfa4a4cb52c636d539e94bc489d1fa034218cb96819a70eb8b01647a39316a59fcfe223c1a8c05ed2e2ae5f4c1e75fa48f6af1c960
-                algorithm:
-                  type: string
-                  enum:
-                    - sha1
-                    - sha512
-                  example: sha512
-                loaders:
-                  type: array
-                  items:
-                    type: string
-                  example:
-                    - fabric
-                game_versions:
-                  type: array
-                  items:
-                    type: string
-                  example:
-                    - '1.18'
-                    - 1.18.1
-              required:
-                - hashes
-                - algorithm
-                - loaders
-                - game_versions
-      responses:
-        '200':
-          description: Latest versions retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  your_hash_here:
-                    $ref: '#/components/schemas/Version'
-        '400':
-          description: Input is invalid
-  /user/{id|username}:
-    get:
-      summary: Get a user
-      operationId: getUser
-      tags:
-        - users
-      parameters:
-        - $ref: '#/components/parameters/UserIdentifier'
-      responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-        '404':
-          description: The requested user was not found
-    patch:
-      summary: Modify a user
-      operationId: modifyUser
-      tags:
-        - users
-      parameters:
-        - $ref: '#/components/parameters/UserIdentifier'
-      requestBody:
-        description: Modified user fields
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EditableUser'
-      responses:
-        '204':
-          description: User modified successfully
-        '401':
-          description: No authorization to modify this user
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-        '404':
-          description: The requested user was not found
-    delete:
-      summary: Delete a user
-      operationId: deleteUser
-      tags:
-        - users
-      parameters:
-        - $ref: '#/components/parameters/UserIdentifier'
-      responses:
-        '204':
-          description: User deleted successfully
-        '401':
-          description: No authorization to delete this user
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-        '404':
-          description: The requested user was not found
-  /users:
-    get:
-      summary: Get multiple users
-      operationId: getUsers
-      tags:
-        - users
-      parameters:
-        - in: query
-          name: ids
-          description: The IDs of the users
-          schema:
-            type: array
-            items:
-              type: string
-            example: '["AABBCCDD", "EEFFGGHH"]'
-          required: true
-      responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/User'
-  /user/{id|username}/icon:
-    patch:
-      summary: Change user's avatar
-      description: >-
-        By default, Modrinth uses a user's GitHub icon. This route allows it to
-        be changed to a custom one. The new avatar may be up to 2MiB in size.
-      operationId: changeUserIcon
-      tags:
-        - users
-      parameters:
-        - $ref: '#/components/parameters/UserIdentifier'
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              enum:
-                - {}
-            encoding:
-              icon:
-                contentType: >-
-                  image/png, image/jpeg, image/bmp, image/gif, image/webp,
-                  image/svg, image/svgz, image/rgb
-      security:
-        - TokenAuth: []
-      responses:
-        '204':
-          description: Avatar changed successfully
-        '400':
-          description: Invalid format for new icon
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InvalidInputError'
-        '404':
-          description: The requested user was not found
-  /user/{id|username}/projects:
-    get:
-      summary: Get user's projects
-      operationId: getUserProjects
-      tags:
-        - users
-      parameters:
-        - $ref: '#/components/parameters/UserIdentifier'
-      responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Project'
-        '404':
-          description: The requested user was not found
-  /user/{id|username}/notifications:
-    get:
-      summary: Get user's notifications
-      description: Notifications can be project updates or team invites
-      operationId: getNotifications
-      tags:
-        - users
-      parameters:
-        - $ref: '#/components/parameters/UserIdentifier'
-      security:
-        - TokenAuth: []
-      responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Notification'
-        '401':
-          description: No authorization to get this user's notifications
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-        '404':
-          description: The requested user was not found
-  /user/{id|username}/follows:
-    get:
-      summary: Get user's followed projects
-      operationId: getFollowedProjects
-      tags:
-        - users
-      parameters:
-        - $ref: '#/components/parameters/UserIdentifier'
-      security:
-        - TokenAuth: []
-      responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Project'
-        '401':
-          description: No authorization to get this user's followed projects
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-        '404':
-          description: The requested user was not found
-  /report:
-    post:
-      summary: Report a project, user, or version
-      description: >-
-        Bring a project, user, or version to the attention of the moderators by
-        reporting it. You must be logged in to report anything.
-      operationId: submitReport
-      tags:
-        - users
-      security:
-        - TokenAuth: []
-      requestBody:
-        description: The report to be sent
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreatableReport'
-      responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Report'
-        '400':
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InvalidInputError'
-        '401':
-          description: No authorization to submit a report
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-  /project/{id|slug}/members:
-    get:
-      summary: Get a project's team members
-      operationId: getProjectTeamMembers
-      tags:
-        - teams
-      parameters:
-        - $ref: '#/components/parameters/ProjectIdentifier'
-      responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TeamMember'
-                description: An array of team members
-        '404':
-          description: >-
-            The requested project was not found or no authorization to see this
-            project
-  /team/{id}/members:
-    get:
-      summary: Get a team's members
-      operationId: getTeamMembers
-      tags:
-        - teams
-      parameters:
-        - $ref: '#/components/parameters/TeamIdentifier'
-      responses:
-        '200':
-          description: Expected response to a valid request
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/TeamMember'
-                description: An array of team members
-    post:
-      summary: Add a user to a team
-      operationId: addTeamMember
-      tags:
-        - teams
-      parameters:
-        - $ref: '#/components/parameters/TeamIdentifier'
-      requestBody:
-        description: User to be added (must be the ID, usernames cannot be used here)
-        content:
-          application/json:
-            schema:
-              properties:
-                user_id:
-                  type: string
-                  example: EEFFGGHH
-              required:
-                - user_id
-      responses:
-        '204':
-          description: User has been successfully invited to the team
-        '401':
-          description: No authorization to modify this team
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-        '404':
-          description: The requested team was not found
-  /team/{id}/join:
-    post:
-      summary: Join a team
-      operationId: joinTeam
-      tags:
-        - teams
-      parameters:
-        - $ref: '#/components/parameters/TeamIdentifier'
-      responses:
-        '204':
-          description: Team has successfully been joined
-        '401':
-          description: No authorization to join this team
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-        '404':
-          description: The requested team was not found
-  /team/{team_id}/members/{user_id}:
-    patch:
-      summary: Modify a team member's roles and/or permissions
-      operationId: modifyTeamMember
-      tags:
-        - teams
-      parameters:
-        - $ref: '#/components/parameters/TeamIdentifier'
-        - in: path
-          name: user_id
-          description: The ID of the user to modify
-          required: true
-          schema:
-            type: string
-      requestBody:
-        description: Contents to be modified
-        content:
-          application/json:
-            schema:
-              properties:
-                role:
-                  type: string
-                  example: Contributor
-                permissions:
-                  type: integer
-                  format: bitflag
-                  example: 127
-                  description: |
-                    The user's permissions in bitflag format
-
-                    In order from first to eighth bit, the bits are:
-                    - UPLOAD_VERSION
-                    - DELETE_VERSION
-                    - EDIT_DETAILS
-                    - EDIT_BODY
-                    - MANAGE_INVITES
-                    - REMOVE_MEMBER
-                    - EDIT_MEMBER
-                    - DELETE_PROJECT
-      responses:
-        '204':
-          description: Roles/permissions have been updated successfully
-        '401':
-          description: No authorization to change this member's roles/permissions
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-        '404':
-          description: The requested team was not found
-    delete:
-      summary: Remove a member from a team
-      tags:
-        - teams
-      parameters:
-        - $ref: '#/components/parameters/TeamIdentifier'
-        - $ref: '#/components/parameters/UserIdentifier'
-      responses:
-        '204':
-          description: User has been removed from the team successfully
-        '401':
-          description: No authorization to remove this member from the team
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-        '404':
-          description: The requested team was not found
-  /team/{id}/owner:
-    post:
-      summary: Transfer team's ownership to another user
-      operationId: transferTeamOwnership
-      tags:
-        - teams
-      parameters:
-        - $ref: '#/components/parameters/TeamIdentifier'
-      requestBody:
-        description: New owner's ID
-        content:
-          application/json:
-            schema:
-              properties:
-                user_id:
-                  type: string
-                  example: EEFFGGHH
-              required:
-                - user_id
-      responses:
-        '204':
-          description: Ownership has successfully been transferred
-        '401':
-          description: No authorization to transfer ownership of this team
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthError'
-        '404':
-          description: The requested team was not found
-  /tag/category:
-    get:
-      summary: Get a list of categories
-      description: Gets an array of categories, their icons, and applicable project types
-      operationId: categoryList
-      tags:
-        - tags
-      responses:
-        '200':
-          description: List of categories
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/CategoryTag'
-  /tag/loader:
-    get:
-      summary: Get a list of loaders
-      description: Gets an array of loaders, their icons, and supported project types
-      operationId: loaderList
-      tags:
-        - tags
-      responses:
-        '200':
-          description: List of loaders
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/LoaderTag'
-  /tag/game_version:
-    get:
-      summary: Get a list of game versions
-      description: Gets an array of game versions and information about them
-      operationId: versionList
-      tags:
-        - tags
-      responses:
-        '200':
-          description: List of game versions
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/GameVersionTag'
-  /tag/license:
-    get:
-      summary: Get a list of licenses
-      description: Gets an array of licenses and information about them
-      operationId: licenseList
-      tags:
-        - tags
-      responses:
-        '200':
-          description: List of licenses
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/LicenseTag'
-  /tag/donation_platform:
-    get:
-      summary: Get a list of donation platforms
-      description: Gets an array of donation platforms and information about them
-      operationId: donationPlatformList
-      tags:
-        - tags
-      responses:
-        '200':
-          description: List of donation platforms
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/DonationPlatformTag'
-  /tag/report_type:
-    get:
-      summary: Get a list of report types
-      description: Gets an array of valid report types
-      operationId: reportTypeList
-      tags:
-        - tags
-      responses:
-        '200':
-          description: List of report types
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: string
-                example:
-                  - spam
-                  - copyright
-                  - inappropriate
-                  - malicious
-                  - name-squatting
-                  - other
 components:
   parameters:
-    ProjectIdentifier:
+    ProjectIdentifier: &ref_14
       name: id|slug
       in: path
       required: true
@@ -1408,7 +46,7 @@ components:
         example:
           - AABBCCDD
           - my_project
-    UserIdentifier:
+    UserIdentifier: &ref_23
       name: id|username
       in: path
       required: true
@@ -1418,7 +56,7 @@ components:
         example:
           - EEFFGGHH
           - my_user
-    VersionIdentifier:
+    VersionIdentifier: &ref_19
       name: id
       in: path
       required: true
@@ -1427,7 +65,7 @@ components:
         type: string
         example:
           - IIJJKKLL
-    TeamIdentifier:
+    TeamIdentifier: &ref_27
       name: id
       in: path
       required: true
@@ -1436,7 +74,7 @@ components:
         type: string
         example:
           - MMNNOOPP
-    AlgorithmIdentifier:
+    AlgorithmIdentifier: &ref_22
       name: algorithm
       in: query
       required: false
@@ -1448,7 +86,7 @@ components:
           - sha512
         example: sha512
         default: sha1
-    FileHashIdentifier:
+    FileHashIdentifier: &ref_21
       name: hash
       in: path
       required: true
@@ -1459,7 +97,208 @@ components:
         type: string
         example: 619e250c133106bacc3e3b560839bd4b324dfda8
   schemas:
-    BaseProject:
+    BaseVersion: &ref_0
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name of this version
+          example: Version 1.0.0
+        version_number:
+          type: string
+          description: The version number. Ideally will follow semantic versioning
+          example: 1.0.0
+        changelog:
+          type: string
+          description: The changelog for this version
+          example: 'List of changes in this version: ...'
+          nullable: true
+        dependencies:
+          type: array
+          items:
+            type: object
+            nullable: true
+            properties:
+              version_id:
+                type: string
+                description: The ID of the version that this version depends on
+                example: IIJJKKLL
+                nullable: true
+              project_id:
+                type: string
+                description: The ID of the project that this version depends on
+                example: QQRRSSTT
+                nullable: true
+              dependency_type:
+                type: string
+                enum:
+                  - required
+                  - optional
+                  - incompatible
+                description: The type of dependency that this version has
+                example: required
+            required:
+              - dependency_type
+          description: A list of specific versions of projects that this version depends on
+        game_versions:
+          type: array
+          items:
+            type: string
+          description: A list of versions of Minecraft that this version supports
+          example:
+            - 1.16.5
+            - 1.17.1
+        version_type:
+          type: string
+          description: The release channel for this version
+          enum:
+            - release
+            - beta
+            - alpha
+          example: release
+        loaders:
+          type: array
+          items:
+            type: string
+          description: The mod loaders that this version supports
+          example:
+            - fabric
+            - forge
+        featured:
+          type: boolean
+          description: Whether the version is featured or not
+          example: true
+    EditableVersion: &ref_5
+      allOf:
+        - *ref_0
+        - type: object
+          properties:
+            primary_file:
+              type: array
+              items:
+                type: string
+              example:
+                - sha1
+                - aaaabbbbccccddddeeeeffffgggghhhhiiiijjjj
+              description: The hash format and the hash of the new primary file
+    CreatableVersion: &ref_20
+      allOf:
+        - type: object
+          properties:
+            data:
+              allOf:
+                - *ref_0
+                - type: object
+                  properties:
+                    project_id:
+                      type: string
+                      description: The ID of the project this version is for
+                      example: AABBCCDD
+                    file_parts:
+                      type: array
+                      items:
+                        type: string
+                        description: >-
+                          An array of the multipart field names of each file
+                          that goes with this version
+                    primary_file:
+                      type: string
+                      description: The multipart field name of the primary file
+                  required:
+                    - file_parts
+                    - project_id
+                    - name
+                    - version_number
+                    - game_versions
+                    - version_type
+                    - loaders
+                    - featured
+          required:
+            - data
+    Version: &ref_7
+      allOf:
+        - *ref_0
+        - type: object
+          properties:
+            id:
+              type: string
+              description: The ID of the version, encoded as a base62 string
+              example: IIJJKKLL
+            project_id:
+              type: string
+              description: The ID of the project this version is for
+              example: AABBCCDD
+            author_id:
+              type: string
+              description: The ID of the author who published this version
+              example: EEFFGGHH
+            date_published:
+              type: string
+              format: date-time
+            downloads:
+              type: integer
+              description: The number of times this version has been downloaded
+            changelog_url:
+              type: string
+              description: A link to the changelog for this version
+              deprecated: true
+              example: null
+              nullable: true
+            files:
+              type: array
+              items:
+                type: object
+                properties:
+                  hashes:
+                    type: object
+                    properties:
+                      sha512:
+                        type: string
+                        example: >-
+                          93ecf5fe02914fb53d94aa3d28c1fb562e23985f8e4d48b9038422798618761fe208a31ca9b723667a4e05de0d91a3f86bcd8d018f6a686c39550e21b198d96f
+                      sha1:
+                        type: string
+                        example: c84dd4b3580c02b79958a0590afd5783d80ef504
+                    description: >-
+                      A map of hashes of the file. The key is the hashing
+                      algorithm and the value is the string version of the hash.
+                  url:
+                    type: string
+                    example: >-
+                      https://cdn.modrinth.com/data/AABBCCDD/versions/1.0.0/my_file.jar
+                    description: A direct link to the file
+                  filename:
+                    type: string
+                    example: my_file.jar
+                    description: The name of the file
+                  primary:
+                    type: boolean
+                    example: false
+                  size:
+                    type: integer
+                    example: 1097270
+                    description: The size of the file in bytes
+                required:
+                  - hashes
+                  - url
+                  - filename
+                  - primary
+                  - size
+              description: A list of files available for download for this version
+          required:
+            - id
+            - project_id
+            - author_id
+            - date_published
+            - downloads
+            - files
+            - name
+            - version_number
+            - game_versions
+            - version_type
+            - loaders
+            - featured
+    BaseProject: &ref_1
       type: object
       properties:
         slug:
@@ -1499,9 +338,9 @@ components:
             - unsupported
           description: The server side support of the project
           example: optional
-    ServerRenderedProject:
+    ServerRenderedProject: &ref_2
       allOf:
-        - $ref: '#/components/schemas/BaseProject'
+        - *ref_1
         - type: object
           properties:
             project_type:
@@ -1523,9 +362,9 @@ components:
           required:
             - project_type
             - downloads
-    ProjectResult:
+    ProjectResult: &ref_8
       allOf:
-        - $ref: '#/components/schemas/ServerRenderedProject'
+        - *ref_2
         - type: object
           properties:
             project_id:
@@ -1581,9 +420,9 @@ components:
             - date_created
             - date_modified
             - license
-    NonSearchProject:
+    NonSearchProject: &ref_3
       allOf:
-        - $ref: '#/components/schemas/BaseProject'
+        - *ref_1
         - type: object
           properties:
             body:
@@ -1633,9 +472,9 @@ components:
                     description: The URL of the donation platform and user
                     example: https://www.patreon.com/my_user
               description: A list of donation links for the project
-    ModifiableProject:
+    ModifiableProject: &ref_4
       allOf:
-        - $ref: '#/components/schemas/NonSearchProject'
+        - *ref_3
         - type: object
           properties:
             license_id:
@@ -1649,9 +488,9 @@ components:
               description: The URL to this license
               example: https://cdn.modrinth.com/licenses/lgpl-3.txt
               nullable: true
-    EditableProject:
+    EditableProject: &ref_15
       allOf:
-        - $ref: '#/components/schemas/ModifiableProject'
+        - *ref_4
         - type: object
           properties:
             status:
@@ -1674,9 +513,9 @@ components:
               type: string
               description: The body of the moderators' message for the project
               nullable: true
-    CreatableProject:
+    CreatableProject: &ref_17
       allOf:
-        - $ref: '#/components/schemas/ModifiableProject'
+        - *ref_4
         - type: object
           properties:
             project_type:
@@ -1687,8 +526,7 @@ components:
               example: modpack
             initial_versions:
               type: array
-              items:
-                $ref: '#/components/schemas/EditableVersion'
+              items: *ref_5
               description: >-
                 A list of initial versions to upload with the created project
                 (required unless `is_draft` is true)
@@ -1732,10 +570,10 @@ components:
             - client_side
             - server_side
             - license_id
-    Project:
+    Project: &ref_6
       allOf:
-        - $ref: '#/components/schemas/NonSearchProject'
-        - $ref: '#/components/schemas/ServerRenderedProject'
+        - *ref_3
+        - *ref_2
         - type: object
           properties:
             id:
@@ -1872,26 +710,23 @@ components:
             - slug
             - body
             - status
-    ProjectDependencyList:
+    ProjectDependencyList: &ref_18
       type: object
       properties:
         projects:
           type: array
-          items:
-            $ref: '#/components/schemas/Project'
+          items: *ref_6
           description: Projects that the project depends upon
         versions:
           type: array
-          items:
-            $ref: '#/components/schemas/Version'
+          items: *ref_7
           description: Versions that the project depends upon
-    SearchResults:
+    SearchResults: &ref_12
       type: object
       properties:
         hits:
           type: array
-          items:
-            $ref: '#/components/schemas/ProjectResult'
+          items: *ref_8
           description: The list of results
         offset:
           type: integer
@@ -1910,208 +745,7 @@ components:
         - offset
         - limit
         - total_hits
-    BaseVersion:
-      type: object
-      properties:
-        name:
-          type: string
-          description: The name of this version
-          example: Version 1.0.0
-        version_number:
-          type: string
-          description: The version number. Ideally will follow semantic versioning
-          example: 1.0.0
-        changelog:
-          type: string
-          description: The changelog for this version
-          example: 'List of changes in this version: ...'
-          nullable: true
-        dependencies:
-          type: array
-          items:
-            type: object
-            nullable: true
-            properties:
-              version_id:
-                type: string
-                description: The ID of the version that this version depends on
-                example: IIJJKKLL
-                nullable: true
-              project_id:
-                type: string
-                description: The ID of the project that this version depends on
-                example: QQRRSSTT
-                nullable: true
-              dependency_type:
-                type: string
-                enum:
-                  - required
-                  - optional
-                  - incompatible
-                description: The type of dependency that this version has
-                example: required
-            required:
-              - dependency_type
-          description: A list of specific versions of projects that this version depends on
-        game_versions:
-          type: array
-          items:
-            type: string
-          description: A list of versions of Minecraft that this version supports
-          example:
-            - 1.16.5
-            - 1.17.1
-        version_type:
-          type: string
-          description: The release channel for this version
-          enum:
-            - release
-            - beta
-            - alpha
-          example: release
-        loaders:
-          type: array
-          items:
-            type: string
-          description: The mod loaders that this version supports
-          example:
-            - fabric
-            - forge
-        featured:
-          type: boolean
-          description: Whether the version is featured or not
-          example: true
-    EditableVersion:
-      allOf:
-        - $ref: '#/components/schemas/BaseVersion'
-        - type: object
-          properties:
-            primary_file:
-              type: array
-              items:
-                type: string
-              example:
-                - sha1
-                - aaaabbbbccccddddeeeeffffgggghhhhiiiijjjj
-              description: The hash format and the hash of the new primary file
-    CreatableVersion:
-      allOf:
-        - type: object
-          properties:
-            data:
-              allOf:
-                - $ref: '#/components/schemas/BaseVersion'
-                - type: object
-                  properties:
-                    project_id:
-                      type: string
-                      description: The ID of the project this version is for
-                      example: AABBCCDD
-                    file_parts:
-                      type: array
-                      items:
-                        type: string
-                        description: >-
-                          An array of the multipart field names of each file
-                          that goes with this version
-                    primary_file:
-                      type: string
-                      description: The multipart field name of the primary file
-                  required:
-                    - file_parts
-                    - project_id
-                    - name
-                    - version_number
-                    - game_versions
-                    - version_type
-                    - loaders
-                    - featured
-          required:
-            - data
-    Version:
-      allOf:
-        - $ref: '#/components/schemas/BaseVersion'
-        - type: object
-          properties:
-            id:
-              type: string
-              description: The ID of the version, encoded as a base62 string
-              example: IIJJKKLL
-            project_id:
-              type: string
-              description: The ID of the project this version is for
-              example: AABBCCDD
-            author_id:
-              type: string
-              description: The ID of the author who published this version
-              example: EEFFGGHH
-            date_published:
-              type: string
-              format: date-time
-            downloads:
-              type: integer
-              description: The number of times this version has been downloaded
-            changelog_url:
-              type: string
-              description: A link to the changelog for this version
-              deprecated: true
-              example: null
-              nullable: true
-            files:
-              type: array
-              items:
-                type: object
-                properties:
-                  hashes:
-                    type: object
-                    properties:
-                      sha512:
-                        type: string
-                        example: >-
-                          93ecf5fe02914fb53d94aa3d28c1fb562e23985f8e4d48b9038422798618761fe208a31ca9b723667a4e05de0d91a3f86bcd8d018f6a686c39550e21b198d96f
-                      sha1:
-                        type: string
-                        example: c84dd4b3580c02b79958a0590afd5783d80ef504
-                    description: >-
-                      A map of hashes of the file. The key is the hashing
-                      algorithm and the value is the string version of the hash.
-                  url:
-                    type: string
-                    example: >-
-                      https://cdn.modrinth.com/data/AABBCCDD/versions/1.0.0/my_file.jar
-                    description: A direct link to the file
-                  filename:
-                    type: string
-                    example: my_file.jar
-                    description: The name of the file
-                  primary:
-                    type: boolean
-                    example: false
-                  size:
-                    type: integer
-                    example: 1097270
-                    description: The size of the file in bytes
-                required:
-                  - hashes
-                  - url
-                  - filename
-                  - primary
-                  - size
-              description: A list of files available for download for this version
-          required:
-            - id
-            - project_id
-            - author_id
-            - date_published
-            - downloads
-            - files
-            - name
-            - version_number
-            - game_versions
-            - version_type
-            - loaders
-            - featured
-    EditableUser:
+    EditableUser: &ref_9
       type: object
       properties:
         username:
@@ -2134,9 +768,9 @@ components:
           description: A description of the user
       required:
         - username
-    User:
+    User: &ref_11
       allOf:
-        - $ref: '#/components/schemas/EditableUser'
+        - *ref_9
         - type: object
           properties:
             id:
@@ -2169,7 +803,7 @@ components:
             - avatar_url
             - created
             - role
-    Notification:
+    Notification: &ref_24
       type: object
       properties:
         id:
@@ -2222,7 +856,7 @@ components:
         - read
         - created
         - actions
-    CreatableReport:
+    CreatableReport: &ref_10
       type: object
       properties:
         report_type:
@@ -2250,10 +884,10 @@ components:
         - item_id
         - item_type
         - body
-    Report:
+    Report: &ref_25
       type: object
       allOf:
-        - $ref: '#/components/schemas/CreatableReport'
+        - *ref_10
         - type: object
           properties:
             reporter:
@@ -2267,15 +901,14 @@ components:
           required:
             - reporter
             - created
-    TeamMember:
+    TeamMember: &ref_26
       type: object
       properties:
         team_id:
           type: string
           example: MMNNOOPP
           description: The ID of the team this team member is a member of
-        user:
-          $ref: '#/components/schemas/User'
+        user: *ref_11
         role:
           type: string
           example: Member
@@ -2317,7 +950,7 @@ components:
         - user
         - role
         - accepted
-    CategoryTag:
+    CategoryTag: &ref_28
       type: object
       properties:
         icon:
@@ -2341,7 +974,7 @@ components:
         - icon
         - name
         - project_type
-    LoaderTag:
+    LoaderTag: &ref_29
       type: object
       properties:
         icon:
@@ -2383,7 +1016,7 @@ components:
         - icon
         - name
         - supported_project_types
-    GameVersionTag:
+    GameVersionTag: &ref_30
       type: object
       properties:
         version:
@@ -2412,7 +1045,7 @@ components:
         - version_type
         - date
         - major
-    LicenseTag:
+    LicenseTag: &ref_31
       type: object
       properties:
         short:
@@ -2426,7 +1059,7 @@ components:
       required:
         - short
         - name
-    DonationPlatformTag:
+    DonationPlatformTag: &ref_32
       type: object
       properties:
         short:
@@ -2440,7 +1073,7 @@ components:
       required:
         - short
         - name
-    InvalidInputError:
+    InvalidInputError: &ref_13
       type: object
       properties:
         error:
@@ -2454,7 +1087,7 @@ components:
       required:
         - error
         - description
-    AuthError:
+    AuthError: &ref_16
       type: object
       properties:
         error:
@@ -2505,3 +1138,1327 @@ components:
 
         This system will be revisited and allow easier interaction with the
         authenticated API once we roll out our own authentication system.
+tags:
+  - name: projects
+    x-displayName: Projects
+    description: Projects can be mods or modpacks and are created by users.
+  - name: versions
+    x-displayName: Versions
+    description: Versions contain download links to files with additional metadata.
+  - name: version-files
+    x-displayName: Version Files
+    description: >-
+      Versions can contain multiple files, and these routes help manage those
+      files.
+  - name: users
+    x-displayName: Users
+    description: >-
+      Users can create projects, join teams, access notifications, manage
+      settings, and follow projects. Admins and moderators have more advanced
+      permissions such as reviewing new projects.
+  - name: teams
+    x-displayName: Teams
+    description: >-
+      Through teams, user permissions limit how team members can modify
+      projects.
+  - name: tags
+    x-displayName: Tags
+    description: >-
+      Tags are common and reusable lists of metadata types such as categories or
+      versions. Some can be applied to projects and/or versions.
+  - name: auth
+    x-displayName: Authorization
+  - name: project_model
+    x-displayName: Project Model
+    description: |
+      <SchemaDefinition schemaRef="#/components/schemas/Project" />
+  - name: project_result_model
+    x-displayName: Search Result Model
+    description: |
+      <SchemaDefinition schemaRef="#/components/schemas/ProjectResult" />
+  - name: version_model
+    x-displayName: Version Model
+    description: |
+      <SchemaDefinition schemaRef="#/components/schemas/Version" />
+  - name: user_model
+    x-displayName: User Model
+    description: |
+      <SchemaDefinition schemaRef="#/components/schemas/User" />
+  - name: team_member_model
+    x-displayName: Team Member Model
+    description: |
+      <SchemaDefinition schemaRef="#/components/schemas/TeamMember" />
+x-tagGroups:
+  - name: General
+    tags:
+      - projects
+      - versions
+      - version-files
+      - users
+      - teams
+      - tags
+  - name: Models
+    tags:
+      - project_model
+      - project_result_model
+      - version_model
+      - user_model
+      - team_member_model
+paths:
+  /search:
+    get:
+      summary: Search projects
+      operationId: searchProjects
+      parameters:
+        - in: query
+          name: query
+          schema:
+            type: string
+            example: gravestones
+          description: The query to search for
+        - in: query
+          name: facets
+          schema:
+            type: array
+            items:
+              type: array
+              items:
+                type: string
+          example: >-
+            [["categories:forge"],["versions:1.17.1"],["project_type:mod"],["license:mit"]]
+          description: >-
+            The recommended way of filtering search results. [Learn more about
+            using facets.](/docs/tutorials/api_search)
+        - in: query
+          name: index
+          schema:
+            type: string
+            enum:
+              - relevance
+              - downloads
+              - follows
+              - newest
+              - updated
+            default: relevance
+            example: downloads
+          description: The sorting method used for sorting search results
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            default: 0
+            example: 20
+          description: The offset into the search. Skips this number of results
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+            example: 20
+          description: The number of results returned by the search
+        - in: query
+          name: filters
+          schema:
+            type: string
+            example: >-
+              categories="fabric" AND (categories="technology" OR
+              categories="utility")
+          description: >-
+            A list of filters relating to the properties of a project. Use
+            filters when there isn't an available facet for your needs. [More
+            information](https://docs.meilisearch.com/reference/features/filtering.html)
+        - in: query
+          name: version
+          schema:
+            type: string
+            example: version="1.16.3" OR version="1.16.2" OR version="1.16.1"
+          deprecated: true
+          description: >-
+            A list of filters relating to the versions of a project. Use of
+            facets for filtering by version is recommended
+      tags:
+        - projects
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema: *ref_12
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema: *ref_13
+  /project/{id|slug}:
+    get:
+      summary: Get a project
+      operationId: getProject
+      tags:
+        - projects
+      parameters:
+        - *ref_14
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema: *ref_6
+        '404':
+          description: >-
+            The requested project was not found or no authorization to see this
+            project
+    patch:
+      summary: Modify a project
+      operationId: modifyProject
+      tags:
+        - projects
+      parameters:
+        - *ref_14
+      requestBody:
+        description: Modified project fields
+        content:
+          application/json:
+            schema: *ref_15
+      responses:
+        '204':
+          description: Project modified successfully
+        '401':
+          description: No authorization to edit this project
+          content:
+            application/json:
+              schema: *ref_16
+        '404':
+          description: >-
+            The requested project was not found or no authorization to see this
+            project
+    delete:
+      summary: Delete a project
+      operationId: deleteProject
+      tags:
+        - projects
+      parameters:
+        - *ref_14
+      responses:
+        '204':
+          description: Project deleted successfully
+        '400':
+          description: The requested project was not found
+          content:
+            application/json:
+              schema: *ref_13
+        '401':
+          description: No valid authorization to delete this project
+          content:
+            application/json:
+              schema: *ref_16
+  /projects:
+    get:
+      summary: Get multiple projects
+      operationId: getProjects
+      tags:
+        - projects
+      parameters:
+        - in: query
+          name: ids
+          description: The IDs of the projects
+          schema:
+            type: array
+            items:
+              type: string
+            example: '["AABBCCDD", "EEFFGGHH"]'
+          required: true
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                type: array
+                items: *ref_6
+  /project:
+    post:
+      summary: Create a project
+      operationId: createProject
+      tags:
+        - projects
+      requestBody:
+        description: New project
+        content:
+          multipart/form-data:
+            schema: *ref_17
+            encoding:
+              icon:
+                contentType: >-
+                  image/png, image/jpeg, image/bmp, image/gif, image/webp,
+                  image/svg, image/svgz, image/rgb
+      responses:
+        '200':
+          description: Project successfully created
+          content:
+            application/json:
+              schema: *ref_6
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema: *ref_13
+        '401':
+          description: No authorization to create a project
+          content:
+            application/json:
+              schema: *ref_16
+  /project/{id|slug}/gallery:
+    post:
+      summary: Add a gallery image
+      description: >-
+        Modrinth allows you to upload files of up to 5MiB to a project's
+        gallery.
+      operationId: addGalleryImage
+      tags:
+        - projects
+      parameters:
+        - *ref_14
+        - description: Image extension
+          in: query
+          name: ext
+          required: true
+          schema:
+            type: string
+            enum:
+              - png
+              - jpg
+              - jpeg
+              - bmp
+              - gif
+              - webp
+              - svg
+              - svgz
+              - rgb
+        - description: Whether an image is featured
+          in: query
+          name: featured
+          required: true
+          schema:
+            type: boolean
+        - description: Title of the image
+          in: query
+          name: title
+          schema:
+            type: string
+        - description: Description of the image
+          in: query
+          name: description
+          schema:
+            type: string
+      requestBody:
+        description: New gallery image
+        content:
+          image/*:
+            schema:
+              type: string
+              format: binary
+            encoding:
+              image:
+                contentType: >-
+                  image/png, image/jpeg, image/bmp, image/gif, image/webp,
+                  image/svg, image/svgz, image/rgb
+      responses:
+        '204':
+          description: Gallery image successfully created
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema: *ref_13
+        '401':
+          description: No authorization to create a gallery image
+          content:
+            application/json:
+              schema: *ref_16
+        '404':
+          description: >-
+            The requested project was not found or no authorization to see this
+            project
+    patch:
+      summary: Modify a gallery image
+      operationId: modifyGalleryImage
+      tags:
+        - projects
+      parameters:
+        - *ref_14
+        - description: URL link of the image to modify
+          in: query
+          name: url
+          required: true
+          schema:
+            type: string
+            format: uri
+        - description: Whether the image is featured
+          in: query
+          name: featured
+          required: true
+          schema:
+            type: boolean
+        - description: New title of the image
+          in: query
+          name: title
+          schema:
+            type: string
+        - description: New description of the image
+          in: query
+          name: description
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Gallery image modified successfully
+        '401':
+          description: No authorization to edit this gallery image
+          content:
+            application/json:
+              schema: *ref_16
+        '404':
+          description: >-
+            The requested project was not found or no authorization to see this
+            project
+    delete:
+      summary: Delete a gallery image
+      operationId: deleteGalleryImage
+      tags:
+        - projects
+      parameters:
+        - *ref_14
+        - description: URL link of the image to delete
+          in: query
+          name: url
+          required: true
+          schema:
+            type: string
+            format: uri
+      responses:
+        '204':
+          description: Gallery image deleted successfully
+        '400':
+          description: Invalid URL or project specified
+          content:
+            application/json:
+              schema: *ref_13
+        '401':
+          description: No authorization to delete this gallery image
+          content:
+            application/json:
+              schema: *ref_16
+  /project/{id|slug}/dependencies:
+    get:
+      summary: Get all of a project's dependencies
+      operationId: getDependencies
+      tags:
+        - projects
+      parameters:
+        - *ref_14
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema: *ref_18
+        '404':
+          description: >-
+            The requested project was not found or no authorization to see this
+            project
+  /project/{id|slug}/version:
+    get:
+      summary: List project's versions
+      operationId: getProjectVersions
+      tags:
+        - versions
+      parameters:
+        - *ref_14
+        - in: query
+          name: loaders
+          required: false
+          description: The types of loaders to filter for
+          schema:
+            type: array
+            items:
+              type: string
+            example: '["fabric"]'
+        - in: query
+          name: game_versions
+          required: false
+          description: The game versions to filter for
+          schema:
+            type: array
+            items:
+              type: string
+            example: '["1.18.1"]'
+        - in: query
+          name: featured
+          required: false
+          description: Allows to filter for featured or non-featured versions only
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                type: array
+                items: *ref_7
+        '404':
+          description: >-
+            The requested project was not found or no authorization to see this
+            project
+  /version/{id}:
+    get:
+      summary: Get a version
+      operationId: getVersion
+      tags:
+        - versions
+      parameters:
+        - *ref_19
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema: *ref_7
+        '404':
+          description: >-
+            The requested version was not found or no authorization to see this
+            version
+    patch:
+      summary: Modify a version
+      operationId: modifyVersion
+      tags:
+        - versions
+      parameters:
+        - *ref_19
+      requestBody:
+        description: Modified version fields
+        content:
+          application/json:
+            schema: *ref_5
+      responses:
+        '204':
+          description: Version modified successfully
+        '401':
+          description: No authorization to edit this version
+          content:
+            application/json:
+              schema: *ref_16
+        '404':
+          description: >-
+            The requested version was not found or no authorization to see this
+            version
+    delete:
+      summary: Delete a version
+      operationId: deleteVersion
+      tags:
+        - versions
+      parameters:
+        - *ref_19
+      responses:
+        '204':
+          description: Version deleted successfully
+        '401':
+          description: No authorization to delete this version
+          content:
+            application/json:
+              schema: *ref_16
+        '404':
+          description: >-
+            The requested version was not found or no authorization to see this
+            version
+  /version:
+    post:
+      summary: Create a version
+      description: Project files are attached. `.mrpack` and `.jar` files are accepted.
+      operationId: createVersion
+      tags:
+        - versions
+      requestBody:
+        description: New version
+        content:
+          multipart/form-data:
+            schema: *ref_20
+      responses:
+        '200':
+          description: Version successfully created
+          content:
+            application/json:
+              schema: *ref_7
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema: *ref_13
+        '401':
+          description: No authorization to create this version
+          content:
+            application/json:
+              schema: *ref_16
+  /versions:
+    get:
+      summary: Get multiple versions
+      operationId: getVersions
+      tags:
+        - versions
+      parameters:
+        - in: query
+          name: ids
+          description: The IDs of the versions
+          schema:
+            type: array
+            items:
+              type: string
+            example: '["AABBCCDD", "EEFFGGHH"]'
+          required: true
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                type: array
+                items: *ref_7
+  /version/{id}/file:
+    post:
+      summary: Add files to version
+      description: Project files are attached. `.mrpack` and `.jar` files are accepted.
+      operationId: addFilesToVersion
+      tags:
+        - versions
+      parameters:
+        - *ref_19
+      requestBody:
+        description: New version files
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  enum:
+                    - {}
+      responses:
+        '204':
+          description: Version modified successfully
+        '401':
+          description: No authorization to modify this version
+          content:
+            application/json:
+              schema: *ref_16
+        '404':
+          description: >-
+            The requested version was not found or no authorization to see this
+            version
+  /version_file/{hash}?algorithm={algorithm}:
+    get:
+      summary: Get version from hash
+      operationId: versionFromHash
+      tags:
+        - version-files
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema: *ref_7
+        '404':
+          description: >-
+            The requested version file was not found or no authorization to see
+            this version
+      parameters:
+        - *ref_21
+        - *ref_22
+    delete:
+      summary: Delete a file from its hash
+      operationId: deleteFileFromHash
+      tags:
+        - version-files
+      responses:
+        '204':
+          description: Expected response to a valid request
+        '401':
+          description: No authorization to delete this version
+          content:
+            application/json:
+              schema: *ref_16
+        '404':
+          description: The requested version was not found
+      parameters:
+        - *ref_21
+        - *ref_22
+  /version_file/{hash}/update?algorithm={algorithm}:
+    post:
+      summary: Latest version of a project from a hash, loader(s), and game version(s)
+      operationId: getLatestVersionFromHash
+      tags:
+        - version-files
+      parameters:
+        - *ref_21
+        - *ref_22
+      requestBody:
+        description: Parameters of the updated version requested
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                loaders:
+                  type: array
+                  items:
+                    type: string
+                    example:
+                      - fabric
+                game_versions:
+                  type: array
+                  items:
+                    type: string
+                  example:
+                    - '1.18'
+                    - 1.18.1
+              required:
+                - loaders
+                - game_versions
+      responses:
+        '200':
+          description: Latest version retrieved successfully
+          content:
+            application/json:
+              schema: *ref_7
+        '400':
+          description: Input is invalid
+        '404':
+          description: >-
+            The requested version was not found or no authorization to see this
+            version
+  /version_files:
+    post:
+      summary: Get versions from hashes
+      description: >-
+        This is the same as [`/version_file/{hash}`](#operation/versionFromHash)
+        except it accepts multiple hashes.
+      operationId: versionsFromHashes
+      tags:
+        - version-files
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  your_hash_here: *ref_7
+        '400':
+          description: Input is invalid
+      requestBody:
+        description: Hashes and algorithm of the versions requested
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hashes:
+                  type: array
+                  items:
+                    type: string
+                  example:
+                    - >-
+                      ea0f38408102e4d2efd53c2cc11b88b711996b48d8922f76ea6abf731219c5bd1efe39ddf9cce77c54d49a62ff10fb685c00d2e4c524ab99d20f6296677ab2c4
+                    - >-
+                      925a5c4899affa4098d997dfa4a4cb52c636d539e94bc489d1fa034218cb96819a70eb8b01647a39316a59fcfe223c1a8c05ed2e2ae5f4c1e75fa48f6af1c960
+                algorithm:
+                  type: string
+                  enum:
+                    - sha1
+                    - sha512
+                  example: sha512
+              required:
+                - hashes
+                - algorithm
+  /version_files/update:
+    post:
+      summary: >-
+        Latest versions of multiple project from hashes, loader(s), and game
+        version(s)
+      description: >-
+        This is the same as
+        [`/version_file/{hash}/update?algorithm={algorithm}`](#operation/getLatestVersionFromHash)
+        except it accepts multiple hashes.
+      operationId: getLatestVersionsFromHashes
+      tags:
+        - version-files
+      requestBody:
+        description: Parameters of the updated version requested
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hashes:
+                  type: array
+                  items:
+                    type: string
+                  example:
+                    - >-
+                      ea0f38408102e4d2efd53c2cc11b88b711996b48d8922f76ea6abf731219c5bd1efe39ddf9cce77c54d49a62ff10fb685c00d2e4c524ab99d20f6296677ab2c4
+                    - >-
+                      925a5c4899affa4098d997dfa4a4cb52c636d539e94bc489d1fa034218cb96819a70eb8b01647a39316a59fcfe223c1a8c05ed2e2ae5f4c1e75fa48f6af1c960
+                algorithm:
+                  type: string
+                  enum:
+                    - sha1
+                    - sha512
+                  example: sha512
+                loaders:
+                  type: array
+                  items:
+                    type: string
+                  example:
+                    - fabric
+                game_versions:
+                  type: array
+                  items:
+                    type: string
+                  example:
+                    - '1.18'
+                    - 1.18.1
+              required:
+                - hashes
+                - algorithm
+                - loaders
+                - game_versions
+      responses:
+        '200':
+          description: Latest versions retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  your_hash_here: *ref_7
+        '400':
+          description: Input is invalid
+  /user/{id|username}:
+    get:
+      summary: Get a user
+      operationId: getUser
+      tags:
+        - users
+      parameters:
+        - *ref_23
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema: *ref_11
+        '404':
+          description: The requested user was not found
+    patch:
+      summary: Modify a user
+      operationId: modifyUser
+      tags:
+        - users
+      parameters:
+        - *ref_23
+      requestBody:
+        description: Modified user fields
+        content:
+          application/json:
+            schema: *ref_9
+      responses:
+        '204':
+          description: User modified successfully
+        '401':
+          description: No authorization to modify this user
+          content:
+            application/json:
+              schema: *ref_16
+        '404':
+          description: The requested user was not found
+    delete:
+      summary: Delete a user
+      operationId: deleteUser
+      tags:
+        - users
+      parameters:
+        - *ref_23
+      responses:
+        '204':
+          description: User deleted successfully
+        '401':
+          description: No authorization to delete this user
+          content:
+            application/json:
+              schema: *ref_16
+        '404':
+          description: The requested user was not found
+  /users:
+    get:
+      summary: Get multiple users
+      operationId: getUsers
+      tags:
+        - users
+      parameters:
+        - in: query
+          name: ids
+          description: The IDs of the users
+          schema:
+            type: array
+            items:
+              type: string
+            example: '["AABBCCDD", "EEFFGGHH"]'
+          required: true
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                type: array
+                items: *ref_11
+  /user/{id|username}/icon:
+    patch:
+      summary: Change user's avatar
+      description: >-
+        By default, Modrinth uses a user's GitHub icon. This route allows it to
+        be changed to a custom one. The new avatar may be up to 2MiB in size.
+      operationId: changeUserIcon
+      tags:
+        - users
+      parameters:
+        - *ref_23
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              enum:
+                - {}
+            encoding:
+              icon:
+                contentType: >-
+                  image/png, image/jpeg, image/bmp, image/gif, image/webp,
+                  image/svg, image/svgz, image/rgb
+      security:
+        - TokenAuth: []
+      responses:
+        '204':
+          description: Avatar changed successfully
+        '400':
+          description: Invalid format for new icon
+          content:
+            application/json:
+              schema: *ref_13
+        '404':
+          description: The requested user was not found
+  /user/{id|username}/projects:
+    get:
+      summary: Get user's projects
+      operationId: getUserProjects
+      tags:
+        - users
+      parameters:
+        - *ref_23
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                type: array
+                items: *ref_6
+        '404':
+          description: The requested user was not found
+  /user/{id|username}/notifications:
+    get:
+      summary: Get user's notifications
+      description: Notifications can be project updates or team invites
+      operationId: getNotifications
+      tags:
+        - users
+      parameters:
+        - *ref_23
+      security:
+        - TokenAuth: []
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                type: array
+                items: *ref_24
+        '401':
+          description: No authorization to get this user's notifications
+          content:
+            application/json:
+              schema: *ref_16
+        '404':
+          description: The requested user was not found
+  /user/{id|username}/follows:
+    get:
+      summary: Get user's followed projects
+      operationId: getFollowedProjects
+      tags:
+        - users
+      parameters:
+        - *ref_23
+      security:
+        - TokenAuth: []
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                type: array
+                items: *ref_6
+        '401':
+          description: No authorization to get this user's followed projects
+          content:
+            application/json:
+              schema: *ref_16
+        '404':
+          description: The requested user was not found
+  /report:
+    post:
+      summary: Report a project, user, or version
+      description: >-
+        Bring a project, user, or version to the attention of the moderators by
+        reporting it. You must be logged in to report anything.
+      operationId: submitReport
+      tags:
+        - users
+      security:
+        - TokenAuth: []
+      requestBody:
+        description: The report to be sent
+        content:
+          application/json:
+            schema: *ref_10
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema: *ref_25
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema: *ref_13
+        '401':
+          description: No authorization to submit a report
+          content:
+            application/json:
+              schema: *ref_16
+    get:
+      summary: Get reports
+      operationId: getReports
+      security:
+        - TokenAuth: []
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                type: array
+                items: *ref_25
+  /project/{id|slug}/members:
+    get:
+      summary: Get a project's team members
+      operationId: getProjectTeamMembers
+      tags:
+        - teams
+      parameters:
+        - *ref_14
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                type: array
+                items: *ref_26
+                description: An array of team members
+        '404':
+          description: >-
+            The requested project was not found or no authorization to see this
+            project
+  /team/{id}/members:
+    get:
+      summary: Get a team's members
+      operationId: getTeamMembers
+      tags:
+        - teams
+      parameters:
+        - *ref_27
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                type: array
+                items: *ref_26
+                description: An array of team members
+    post:
+      summary: Add a user to a team
+      operationId: addTeamMember
+      tags:
+        - teams
+      parameters:
+        - *ref_27
+      requestBody:
+        description: User to be added (must be the ID, usernames cannot be used here)
+        content:
+          application/json:
+            schema:
+              properties:
+                user_id:
+                  type: string
+                  example: EEFFGGHH
+              required:
+                - user_id
+      responses:
+        '204':
+          description: User has been successfully invited to the team
+        '401':
+          description: No authorization to modify this team
+          content:
+            application/json:
+              schema: *ref_16
+        '404':
+          description: The requested team was not found
+  /team/{id}/join:
+    post:
+      summary: Join a team
+      operationId: joinTeam
+      tags:
+        - teams
+      parameters:
+        - *ref_27
+      responses:
+        '204':
+          description: Team has successfully been joined
+        '401':
+          description: No authorization to join this team
+          content:
+            application/json:
+              schema: *ref_16
+        '404':
+          description: The requested team was not found
+  /team/{team_id}/members/{user_id}:
+    patch:
+      summary: Modify a team member's roles and/or permissions
+      operationId: modifyTeamMember
+      tags:
+        - teams
+      parameters:
+        - *ref_27
+        - in: path
+          name: user_id
+          description: The ID of the user to modify
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: Contents to be modified
+        content:
+          application/json:
+            schema:
+              properties:
+                role:
+                  type: string
+                  example: Contributor
+                permissions:
+                  type: integer
+                  format: bitflag
+                  example: 127
+                  description: |
+                    The user's permissions in bitflag format
+
+                    In order from first to eighth bit, the bits are:
+                    - UPLOAD_VERSION
+                    - DELETE_VERSION
+                    - EDIT_DETAILS
+                    - EDIT_BODY
+                    - MANAGE_INVITES
+                    - REMOVE_MEMBER
+                    - EDIT_MEMBER
+                    - DELETE_PROJECT
+      responses:
+        '204':
+          description: Roles/permissions have been updated successfully
+        '401':
+          description: No authorization to change this member's roles/permissions
+          content:
+            application/json:
+              schema: *ref_16
+        '404':
+          description: The requested team was not found
+    delete:
+      summary: Remove a member from a team
+      tags:
+        - teams
+      parameters:
+        - *ref_27
+        - *ref_23
+      responses:
+        '204':
+          description: User has been removed from the team successfully
+        '401':
+          description: No authorization to remove this member from the team
+          content:
+            application/json:
+              schema: *ref_16
+        '404':
+          description: The requested team was not found
+  /team/{id}/owner:
+    post:
+      summary: Transfer team's ownership to another user
+      operationId: transferTeamOwnership
+      tags:
+        - teams
+      parameters:
+        - *ref_27
+      requestBody:
+        description: New owner's ID
+        content:
+          application/json:
+            schema:
+              properties:
+                user_id:
+                  type: string
+                  example: EEFFGGHH
+              required:
+                - user_id
+      responses:
+        '204':
+          description: Ownership has successfully been transferred
+        '401':
+          description: No authorization to transfer ownership of this team
+          content:
+            application/json:
+              schema: *ref_16
+        '404':
+          description: The requested team was not found
+  /tag/category:
+    get:
+      summary: Get a list of categories
+      description: Gets an array of categories, their icons, and applicable project types
+      operationId: categoryList
+      tags:
+        - tags
+      responses:
+        '200':
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items: *ref_28
+  /tag/loader:
+    get:
+      summary: Get a list of loaders
+      description: Gets an array of loaders, their icons, and supported project types
+      operationId: loaderList
+      tags:
+        - tags
+      responses:
+        '200':
+          description: List of loaders
+          content:
+            application/json:
+              schema:
+                type: array
+                items: *ref_29
+  /tag/game_version:
+    get:
+      summary: Get a list of game versions
+      description: Gets an array of game versions and information about them
+      operationId: versionList
+      tags:
+        - tags
+      responses:
+        '200':
+          description: List of game versions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: *ref_30
+  /tag/license:
+    get:
+      summary: Get a list of licenses
+      description: Gets an array of licenses and information about them
+      operationId: licenseList
+      tags:
+        - tags
+      responses:
+        '200':
+          description: List of licenses
+          content:
+            application/json:
+              schema:
+                type: array
+                items: *ref_31
+  /tag/donation_platform:
+    get:
+      summary: Get a list of donation platforms
+      description: Gets an array of donation platforms and information about them
+      operationId: donationPlatformList
+      tags:
+        - tags
+      responses:
+        '200':
+          description: List of donation platforms
+          content:
+            application/json:
+              schema:
+                type: array
+                items: *ref_32
+  /tag/report_type:
+    get:
+      summary: Get a list of report types
+      description: Gets an array of valid report types
+      operationId: reportTypeList
+      tags:
+        - tags
+      responses:
+        '200':
+          description: List of report types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                example:
+                  - spam
+                  - copyright
+                  - inappropriate
+                  - malicious
+                  - name-squatting
+                  - other
+  /moderation/projects:
+    get:
+      summary: Get a list of unapproved projects
+      operationId: getModerationProjects
+      security:
+        - TokenAuth: []
+      responses:
+        '200':
+          description: List of report types
+          content:
+            application/json:
+              schema:
+                type: array
+                items: *ref_6
